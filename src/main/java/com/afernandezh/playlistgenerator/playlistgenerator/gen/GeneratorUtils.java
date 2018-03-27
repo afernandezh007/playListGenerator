@@ -5,9 +5,11 @@ import lombok.extern.log4j.Log4j;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
 
+/**
+ * Util class with all the necessary static methods to the Main generator class
+ */
 @Log4j
 public class GeneratorUtils {
 
@@ -18,15 +20,15 @@ public class GeneratorUtils {
      */
     public static void generateM3U(Path disc) {
 
-        String discName = disc.toFile().getName();
-        Path m3uFile = Paths.get(disc.toFile().toString(), discName + ".m3u");
+        String discName = disc.getFileName().toString();
+        Path m3uFile = disc.resolve(discName + ".m3u");
         Optional<String> m3uFileContent = Optional.empty();
 
         try {
             m3uFileContent = Files
                     .list(disc)
-                    .filter(path -> path.toFile().toString().endsWith(".mp3"))
-                    .map(path -> path.toFile().getName())
+                    .filter(path -> path.getFileName().toString().endsWith(".mp3"))
+                    .map(path -> path.getFileName().toString())
                     .reduce((s1, s2) -> s1 + "\n" + s2);
 
         } catch (IOException e) {
@@ -50,7 +52,7 @@ public class GeneratorUtils {
      * @return
      */
     public static boolean isM3UFile(Path p) {
-        return p.toFile().toString().endsWith(".m3u");
+        return p.getFileName().toString().endsWith(".m3u");
     }
 
     /**
@@ -64,7 +66,7 @@ public class GeneratorUtils {
         try {
             returnValue = Files
                     .list(disc)
-                    .anyMatch(path -> path.toFile().toString().endsWith(".mp3"));
+                    .anyMatch(path -> path.getFileName().toString().endsWith(".mp3"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -80,27 +82,75 @@ public class GeneratorUtils {
     public static void deleteFile(Path p) {
         try {
             Files.delete(p);
-            log.info("Deleted m3u file: " + p.toFile().getName());
+            log.info("Deleted m3u file: " + p.getFileName());
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("There was problems while deleting the file " + p.getFileName(), e);
+        }
+    }
+
+
+
+    /**
+     * Method to copy the M3U file generated to the playlist folder
+     * and update it with the relative paths to the mp3 files
+     *
+     * @param sourceM3U
+     * @param playListFolder
+     * @param rootFolder
+     */
+    public static void relativizePathsAndCopy(Path sourceM3U, Path playListFolder, Path rootFolder) {
+
+        //1.- Copy the same m3u file without any change to the playlistFolder
+        copyM3UWithRelative(sourceM3U, playListFolder);
+
+        //2.- Calculate the relative path between playListFolder and source mp3 folder
+        Path targetM3U = playListFolder.resolve(sourceM3U.getFileName());
+        Integer nParts = rootFolder.getNameCount();
+        Path relativeTarget = targetM3U.subpath(nParts, targetM3U.getNameCount() - 1);
+        Path relativeSource = sourceM3U.subpath(nParts, sourceM3U.getNameCount() - 1);
+        Path relativePathBetween = relativeTarget.relativize(relativeSource);
+
+        //3.- Update the target file with the relative path
+        try {
+            updateM3UFileWithRelative(targetM3U, relativePathBetween);
+        } catch (IOException e) {
+            log.error("There was problems while updating the file " + targetM3U.getFileName(), e);
         }
     }
 
     /**
      * Method to copy a m3u file to a destination folder
-     * @param m3ufile
-     * @param targetFolder
+     *
+     * @param sourceM3U
+     * @param playListFolder
      */
-    public static void copyM3UWithRelative(Path m3ufile, String targetFolder) {
+    public static void copyM3UWithRelative(Path sourceM3U, Path playListFolder) {
 
-        Path playListFolder = Paths.get(targetFolder);
         try {
-
-            Path target = playListFolder.resolve(m3ufile.getFileName());
-            Files.copy(m3ufile, target);
-            log.info(target + " copied!");
+            Path targetM3U = playListFolder.resolve(sourceM3U.getFileName());
+            Files.copy(sourceM3U, targetM3U);
+            log.info(targetM3U + " copied!");
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("There was problems while copying the file " + sourceM3U.getFileName(), e);
+        }
+    }
+
+    /**
+     * Update the M3U file with the relative path to the mp3
+     *
+     * @param sourceM3U
+     * @param relative
+     * @throws IOException
+     */
+    private static void updateM3UFileWithRelative(Path sourceM3U, Path relative) throws IOException {
+
+        Optional<String> lines = Files
+                .lines(sourceM3U)
+                .map(line -> relative.getFileName().toString() + Generator.WINDOWS_SEPARATOR + line)
+                .reduce((s1, s2) -> s1 + "\n" + s2);
+        log.info(sourceM3U + " updated with relative paths!");
+        if (lines.isPresent()) {
+            Files.write(sourceM3U, lines.get().getBytes());
         }
     }
 }

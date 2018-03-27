@@ -13,7 +13,7 @@ import java.nio.file.Paths;
 public class TestGenerator {
 
     @Test
-    public void test(){
+    public void test() {
 
         ClassLoader classLoader = getClass().getClassLoader();
         String rootPath = null;
@@ -24,13 +24,14 @@ public class TestGenerator {
         }
 
         String playListPath = Paths.get(rootPath).resolve("00_playlists").toFile().toString();
+        String playListClassifiedPath = Paths.get(rootPath).resolve("00_playlists_classified").toFile().toString();
 
 
         log.info("=====================================================");
-        log.info("ROOT PATH: "+rootPath);
+        log.info("ROOT PATH: " + rootPath);
         log.info("=====================================================");
 
-        Generator gen = new Generator(rootPath, playListPath);
+        Generator gen = new Generator(rootPath, playListPath, playListClassifiedPath);
 
         try {
             gen.generatePlayLists();
