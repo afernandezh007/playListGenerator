@@ -6,7 +6,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        Generator gen = new Generator("","");
+        //Generator gen = new Generator("","");
 
         System.out.println("hello!");
     }

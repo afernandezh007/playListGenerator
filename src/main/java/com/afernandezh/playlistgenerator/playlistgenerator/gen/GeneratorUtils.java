@@ -5,6 +5,10 @@ import lombok.extern.log4j.Log4j;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -100,15 +104,15 @@ public class GeneratorUtils {
      */
     public static void relativizePathsAndCopy(Path sourceM3U, Path playListFolder, Path rootFolder) {
 
-        //1.- Copy the same m3u file without any change to the playlistFolder
-        copyM3UWithRelative(sourceM3U, playListFolder);
-
-        //2.- Calculate the relative path between playListFolder and source mp3 folder
-        Path targetM3U = playListFolder.resolve(sourceM3U.getFileName());
+        //1.- Calculate the relative path between playListFolder and source mp3 folder
         Integer nParts = rootFolder.getNameCount();
-        Path relativeTarget = targetM3U.subpath(nParts, targetM3U.getNameCount() - 1);
-        Path relativeSource = sourceM3U.subpath(nParts, sourceM3U.getNameCount() - 1);
-        Path relativePathBetween = relativeTarget.relativize(relativeSource);
+        Path sourceFolder = sourceM3U.getParent();
+        Path relativeSourceFolder = sourceFolder.subpath(nParts, sourceFolder.getNameCount());
+        Path relativeTargetFolder = playListFolder.subpath(nParts, playListFolder.getNameCount());
+
+        //2.- Copy the same m3u file without any change to the playlistFolder
+        Path targetM3U = copyM3UWithRelative(sourceM3U, playListFolder, relativeSourceFolder);
+        Path relativePathBetween = relativeTargetFolder.relativize(relativeSourceFolder);
 
         //3.- Update the target file with the relative path
         try {
@@ -120,19 +124,39 @@ public class GeneratorUtils {
 
     /**
      * Method to copy a m3u file to a destination folder
-     *
      * @param sourceM3U
      * @param playListFolder
+     * @param relativeSourceFolder
      */
-    public static void copyM3UWithRelative(Path sourceM3U, Path playListFolder) {
+    public static Path copyM3UWithRelative(Path sourceM3U, Path playListFolder, Path relativeSourceFolder) {
 
+        Path returnValue = null;
         try {
-            Path targetM3U = playListFolder.resolve(sourceM3U.getFileName());
-            Files.copy(sourceM3U, targetM3U);
-            log.info(targetM3U + " copied!");
+            //We must append all the relative path to the m3u name to sort correctly in the main playlist folder
+
+            //1.- Transform the relative to a prefix String like s1 - s2 - s3
+            List<Path> parts = new ArrayList<>();
+            relativeSourceFolder.iterator().forEachRemaining(parts::add);
+
+            //remove last because it's the disc name and its implicit in the file name, so we cannot repeat it
+            parts.remove(parts.size()-1);
+
+            Optional<String> pathInStringCustom = parts.stream()
+                    .map(p -> p.getFileName().toString())
+                    .reduce((p1, p2) -> p1 + Generator.DELIMITER + p2);
+
+            if (pathInStringCustom.isPresent()) {
+                String prefixForM3U = pathInStringCustom.get();
+
+                Path targetM3U = playListFolder.resolve(prefixForM3U + Generator.DELIMITER + sourceM3U.getFileName());
+                Files.copy(sourceM3U, targetM3U);
+                log.info(targetM3U + " copied!");
+                returnValue = targetM3U;
+            }
         } catch (IOException e) {
             log.error("There was problems while copying the file " + sourceM3U.getFileName(), e);
         }
+        return returnValue;
     }
 
     /**

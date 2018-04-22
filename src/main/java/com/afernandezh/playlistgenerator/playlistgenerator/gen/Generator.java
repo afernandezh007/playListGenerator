@@ -25,7 +25,7 @@ public class Generator {
 
     //---------------------------------------------------
     // Constants
-    public static final String DELIMITER = "-";
+    public static final String DELIMITER = " - ";
     public static final String WINDOWS_SEPARATOR = "\\";
 
     //---------------------------------------------------
@@ -70,7 +70,7 @@ public class Generator {
 
         //===============================================================================================
         //4.- Generate the structure
-
+//
 //        //4.1.- we classify the m3u files for artist
 //        Map<String, List<String>> collect = Files
 //                .list(Paths.get(targetPlayListFolder))
